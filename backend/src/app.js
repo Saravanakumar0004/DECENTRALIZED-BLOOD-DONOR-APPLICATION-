@@ -17,6 +17,8 @@ import {
   healthRouter,
 } from './routes/index.routes.js';
 
+
+import aiRoutes from './routes/ai.routes.js';
 // Error handler
 import errorHandler from './middleware/errorHandler.js';
 import logger from './utils/logger.js';
@@ -83,7 +85,7 @@ app.use('/api/hospital',  hospitalRouter);
 app.use('/api/bdc',       bdcRouter);
 app.use('/api/admin',     adminRouter);
 app.use('/api/inventory', inventoryRouter);
-
+app.use('/api/ai',        aiRoutes);
 // ── 404 handler ───────────────────────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ message: `Route not found: ${req.method} ${req.originalUrl}` });

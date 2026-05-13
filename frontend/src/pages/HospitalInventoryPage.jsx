@@ -1,4 +1,4 @@
-// pages/HospitalInventoryPage.jsx  ── NEW FILE
+// pages/HospitalInventoryPage.jsx
 import { useState, useEffect } from 'react'
 import {
   getMyInventory, updateStock, setInventoryVisibility,
@@ -6,25 +6,27 @@ import {
   getMyTransfers, acceptTransfer, rejectTransfer,
   dispatchTransfer, confirmDelivery, cancelTransfer,
 } from '../api/inventory'
-import { LoadingSpinner, EmptyState, BloodBadge } from '../components/ui/index'
+import { LoadingSpinner, EmptyState } from '../components/ui/index'
 import { formatDate } from '../utils/formatters'
 import toast from 'react-hot-toast'
-import { Eye, EyeOff, Plus, Truck, CheckCircle, XCircle, X, Package, ArrowLeftRight } from 'lucide-react'
+import {
+  Eye, EyeOff, Plus, Truck, CheckCircle, X,
+  Package, ArrowLeftRight, MapPin, Phone, Building2,
+  Globe, Droplets,
+} from 'lucide-react'
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-']
 
-// ── Blood Group Color helper ──────────────────────────────────────────────────
 function bgColor(group) {
   const map = {
-    'A+': 'text-red-400', 'A-': 'text-red-300',
-    'B+': 'text-blue-400', 'B-': 'text-blue-300',
-    'O+': 'text-green-400', 'O-': 'text-green-300',
-    'AB+': 'text-purple-400', 'AB-': 'text-purple-300',
+    'A+': 'text-red-400',    'A-': 'text-red-300',
+    'B+': 'text-blue-400',   'B-': 'text-blue-300',
+    'O+': 'text-green-400',  'O-': 'text-green-300',
+    'AB+': 'text-purple-400','AB-': 'text-purple-300',
   }
   return map[group] || 'text-slate-300'
 }
 
-// ── Transfer status badge ─────────────────────────────────────────────────────
 function TransferBadge({ status }) {
   const map = {
     PENDING:    'bg-yellow-900 text-yellow-400',
@@ -41,7 +43,286 @@ function TransferBadge({ status }) {
   )
 }
 
-// ── Stock Editor Modal ────────────────────────────────────────────────────────
+
+// ── Hospital Profile Modal ────────────────────────────────────────────────────
+// Reads from the fully-populated hospital object — no extra API fetch needed
+// because the backend now returns all fields in every transfer populate.
+function HospitalProfileModal({ hospital, onClose }) {
+  if (!hospital) return null
+
+  const name     = hospital.hospitalName || hospital.name
+  const address  = [hospital.hospitalAddress, hospital.hospitalState, hospital.hospitalPincode]
+    .filter(Boolean).join(', ')
+  const phone    = hospital.hospitalMobile || hospital.hospitalTelephone
+  const initials = name?.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+      <div className="card w-full max-w-md mx-4 border-slate-700 shadow-2xl max-h-[90vh] overflow-y-auto">
+
+        {/* Header */}
+        <div className="flex justify-between items-start mb-5">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-blue-900/40 border border-blue-800/50 flex items-center justify-center text-blue-300 font-bold text-lg shrink-0">
+              {initials}
+            </div>
+            <div>
+              <h3 className="font-display text-xl text-slate-100 leading-tight">{name}</h3>
+              <div className="flex items-center gap-2 mt-0.5">
+                {hospital.hospitalType && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+                    {hospital.hospitalType}
+                  </span>
+                )}
+                {hospital.isVerified && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-green-900/40 text-green-400">
+                    ✓ Verified
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} className="btn-ghost p-1 shrink-0"><X size={18} /></button>
+        </div>
+
+        <div className="space-y-4">
+
+          {/* Contact */}
+          <div className="rounded-lg border border-slate-800 overflow-hidden">
+            <div className="px-3 py-2 bg-slate-900/60 border-b border-slate-800">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+                <Phone size={11} /> Contact
+              </p>
+            </div>
+            <div className="px-3 py-3 space-y-2">
+              {hospital.contactPersonName && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Contact Person</span>
+                  <span className="text-slate-200">{hospital.contactPersonName}</span>
+                </div>
+              )}
+              {phone && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Mobile</span>
+                  <a href={`tel:${phone}`} className="text-green-400 font-mono font-semibold hover:text-green-300">
+                    📞 {phone}
+                  </a>
+                </div>
+              )}
+              {hospital.hospitalTelephone && hospital.hospitalTelephone !== phone && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Telephone</span>
+                  <a href={`tel:${hospital.hospitalTelephone}`} className="text-green-400 font-mono hover:text-green-300">
+                    {hospital.hospitalTelephone}
+                  </a>
+                </div>
+              )}
+              {hospital.hospitalEmail && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Email</span>
+                  <a href={`mailto:${hospital.hospitalEmail}`} className="text-blue-400 hover:text-blue-300 text-xs">
+                    {hospital.hospitalEmail}
+                  </a>
+                </div>
+              )}
+              {hospital.hospitalWebsite && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Website</span>
+                  <a href={hospital.hospitalWebsite} target="_blank" rel="noopener noreferrer"
+                    className="text-blue-400 hover:text-blue-300 flex items-center gap-1">
+                    <Globe size={11} /> {hospital.hospitalWebsite.replace(/^https?:\/\//, '')}
+                  </a>
+                </div>
+              )}
+              {!hospital.contactPersonName && !phone && !hospital.hospitalEmail && !hospital.hospitalWebsite && (
+                <p className="text-xs text-slate-600 italic">No contact details on record</p>
+              )}
+            </div>
+          </div>
+
+          {/* Address */}
+          {address && (
+            <div className="rounded-lg border border-slate-800 overflow-hidden">
+              <div className="px-3 py-2 bg-slate-900/60 border-b border-slate-800">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+                  <MapPin size={11} /> Address
+                </p>
+              </div>
+              <div className="px-3 py-3 space-y-1.5">
+                <p className="text-sm text-slate-300">{address}</p>
+                {hospital.hospitalLandmark && (
+                  <p className="text-xs text-slate-500">📍 Near {hospital.hospitalLandmark}</p>
+                )}
+                {hospital.location?.city && (
+                  <p className="text-xs text-slate-500">City: {hospital.location.city}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Blood Bank */}
+          <div className="rounded-lg border border-slate-800 overflow-hidden">
+            <div className="px-3 py-2 bg-slate-900/60 border-b border-slate-800">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+                <Droplets size={11} /> Blood Bank
+              </p>
+            </div>
+            <div className="px-3 py-3 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Blood Bank</span>
+                <span className={hospital.bloodBankAvailable ? 'text-green-400' : 'text-slate-500'}>
+                  {hospital.bloodBankAvailable ? '✓ Available' : '✗ Not available'}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Emergency Service</span>
+                <span className={hospital.emergencyServiceAvailable ? 'text-green-400' : 'text-slate-500'}>
+                  {hospital.emergencyServiceAvailable ? '✓ Available' : '✗ Not available'}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">24×7 Service</span>
+                <span className={hospital.is24x7Service ? 'text-green-400' : 'text-slate-500'}>
+                  {hospital.is24x7Service ? '✓ Yes' : '✗ No'}
+                </span>
+              </div>
+              {hospital.availableBloodGroups?.length > 0 && (
+                <div className="pt-1">
+                  <p className="text-xs text-slate-500 mb-1.5">Blood groups stocked:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {hospital.availableBloodGroups.map(bg => (
+                      <span key={bg} className="text-xs px-2 py-0.5 rounded-full bg-red-900/30 text-red-400 font-mono">
+                        {bg}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Registration */}
+          {(hospital.licenseNumber || hospital.registrationNumber || hospital.gstNumber || hospital.establishedYear) && (
+            <div className="rounded-lg border border-slate-800 overflow-hidden">
+              <div className="px-3 py-2 bg-slate-900/60 border-b border-slate-800">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+                  <Building2 size={11} /> Registration
+                </p>
+              </div>
+              <div className="px-3 py-3 space-y-2">
+                {hospital.licenseNumber && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-500">License No.</span>
+                    <span className="text-slate-200 font-mono text-xs">{hospital.licenseNumber}</span>
+                  </div>
+                )}
+                {hospital.registrationNumber && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-500">Reg. Number</span>
+                    <span className="text-slate-200 font-mono text-xs">{hospital.registrationNumber}</span>
+                  </div>
+                )}
+                {hospital.gstNumber && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-500">GST Number</span>
+                    <span className="text-slate-200 font-mono text-xs">{hospital.gstNumber}</span>
+                  </div>
+                )}
+                {hospital.establishedYear && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-500">Established</span>
+                    <span className="text-slate-200">{hospital.establishedYear}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <button onClick={onClose} className="btn-secondary w-full mt-5">Close</button>
+      </div>
+    </div>
+  )
+}
+
+
+// ── Hospital Info Strip (requester view) ──────────────────────────────────────
+function HospitalInfoStrip({ hospital }) {
+  if (!hospital) return null
+  const address = [hospital.hospitalAddress, hospital.hospitalState, hospital.hospitalPincode]
+    .filter(Boolean).join(', ')
+  const phone = hospital.hospitalMobile || hospital.hospitalTelephone || hospital.mobileNumber
+  if (!address && !phone) return null
+  return (
+    <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1.5 px-3 py-2.5 rounded-lg bg-slate-900/60 border border-slate-800">
+      {address && (
+        <div className="flex items-start gap-1.5 text-xs text-slate-400">
+          <MapPin size={11} className="mt-0.5 shrink-0 text-slate-500" />
+          <span>{address}</span>
+        </div>
+      )}
+      {phone && (
+        <div className="flex items-center gap-1.5 text-xs">
+          <Phone size={11} className="shrink-0 text-slate-500" />
+          <a href={`tel:${phone}`} className="text-green-400 font-mono font-semibold hover:text-green-300 underline underline-offset-2">
+            {phone}
+          </a>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+// ── Deliver-To Card (supplier view) ──────────────────────────────────────────
+function DeliverToCard({ hospital }) {
+  if (!hospital) return null
+  const address  = [hospital.hospitalAddress, hospital.hospitalState, hospital.hospitalPincode]
+    .filter(Boolean).join(', ')
+  const phone    = hospital.hospitalMobile || hospital.hospitalTelephone || hospital.mobileNumber
+  const name     = hospital.hospitalName   || hospital.name
+  const city     = hospital.location?.city
+  const landmark = hospital.hospitalLandmark
+
+  if (!address && !phone) return null
+
+  return (
+    <div className="mt-2 rounded-lg border border-blue-800/50 bg-blue-900/10 overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 bg-blue-900/25 border-b border-blue-800/40">
+        <MapPin size={12} className="text-blue-400 shrink-0" />
+        <span className="text-xs font-semibold text-blue-300 uppercase tracking-wide">Deliver To</span>
+        {city && <span className="text-xs text-blue-400/70 ml-auto">{city}</span>}
+      </div>
+      <div className="px-3 py-2.5 space-y-1.5">
+        {name && <p className="text-sm font-medium text-slate-100">{name}</p>}
+        {address && (
+          <div className="flex items-start gap-2 text-xs text-slate-400">
+            <MapPin size={10} className="mt-0.5 shrink-0 text-slate-600" />
+            <span>{address}</span>
+          </div>
+        )}
+        {landmark && (
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <span className="text-slate-600">📍</span>
+            <span>Near {landmark}</span>
+          </div>
+        )}
+        {phone && (
+          <div className="flex items-center gap-2 text-xs mt-1">
+            <Phone size={10} className="shrink-0 text-slate-600" />
+            <span className="text-slate-500">Contact:</span>
+            <a href={`tel:${phone}`} className="text-green-400 font-mono font-bold hover:text-green-300 underline underline-offset-2">
+              📞 {phone}
+            </a>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+
+// ── Stock Editor Modal ─────────────────────────────────────────────────────────
 function StockEditorModal({ stock, onClose, onSaved }) {
   const [values, setValues] = useState(() => {
     const init = {}
@@ -58,8 +339,8 @@ function StockEditorModal({ stock, onClose, onSaved }) {
     try {
       const updates = BLOOD_GROUPS.map(bg => ({
         bloodGroup: bg,
-        units: parseInt(values[bg].units, 10) || 0,
-        action: values[bg].action,
+        units:      parseInt(values[bg].units, 10) || 0,
+        action:     values[bg].action,
       }))
       await updateStock({ updates })
       toast.success('Inventory updated!')
@@ -91,8 +372,7 @@ function StockEditorModal({ stock, onClose, onSaved }) {
                 <option value="SUBTRACT">Subtract</option>
               </select>
               <input
-                type="number"
-                min="0"
+                type="number" min="0"
                 className="input text-sm py-1.5 w-24"
                 value={values[bg].units}
                 onChange={e => setValues(p => ({ ...p, [bg]: { ...p[bg], units: e.target.value } }))}
@@ -112,16 +392,17 @@ function StockEditorModal({ stock, onClose, onSaved }) {
   )
 }
 
-// ── Request Transfer Modal ────────────────────────────────────────────────────
+
+// ── Request Transfer Modal ─────────────────────────────────────────────────────
 function RequestTransferModal({ onClose, onSuccess }) {
   const [hospitals, setHospitals] = useState([])
   const [loading, setLoading]     = useState(true)
   const [form, setForm] = useState({
     supplyingHospitalId: '',
-    bloodGroup: 'O+',
+    bloodGroup:    'O+',
     unitsRequested: 1,
-    urgencyLevel: 'Medium',
-    notes: '',
+    urgencyLevel:  'Medium',
+    notes:         '',
   })
   const [submitting, setSubmitting] = useState(false)
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
@@ -134,7 +415,7 @@ function RequestTransferModal({ onClose, onSuccess }) {
   }, [])
 
   const selectedHospital = hospitals.find(h => h.hospital?._id === form.supplyingHospitalId)
-  const availableUnits = selectedHospital?.stock?.find(s => s.bloodGroup === form.bloodGroup)?.units ?? null
+  const availableUnits   = selectedHospital?.stock?.find(s => s.bloodGroup === form.bloodGroup)?.units ?? null
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -167,7 +448,8 @@ function RequestTransferModal({ onClose, onSuccess }) {
             </div>
             <div>
               <label className="label">Supplying Hospital</label>
-              <select className="input" value={form.supplyingHospitalId} onChange={e => set('supplyingHospitalId', e.target.value)} required>
+              <select className="input" value={form.supplyingHospitalId}
+                onChange={e => set('supplyingHospitalId', e.target.value)} required>
                 <option value="">Select hospital...</option>
                 {hospitals.map(h => {
                   const avail = h.stock?.find(s => s.bloodGroup === form.bloodGroup)?.units ?? 0
@@ -180,7 +462,10 @@ function RequestTransferModal({ onClose, onSuccess }) {
               </select>
               {availableUnits !== null && (
                 <p className="text-xs mt-1 text-slate-500">
-                  Available at selected hospital: <span className={availableUnits > 0 ? 'text-green-400' : 'text-red-400'}>{availableUnits} units</span>
+                  Available at selected hospital:{' '}
+                  <span className={availableUnits > 0 ? 'text-green-400' : 'text-red-400'}>
+                    {availableUnits} units
+                  </span>
                 </p>
               )}
             </div>
@@ -216,11 +501,17 @@ function RequestTransferModal({ onClose, onSuccess }) {
   )
 }
 
-// ── Dispatch Modal ────────────────────────────────────────────────────────────
+
+// ── Dispatch Modal ─────────────────────────────────────────────────────────────
 function DispatchModal({ transfer, onClose, onSuccess }) {
-  const [form, setForm] = useState({ vehicleNumber: '', driverName: '', driverPhone: '' })
+  const [form, setForm]         = useState({ vehicleNumber: '', driverName: '', driverPhone: '' })
   const [submitting, setSubmitting] = useState(false)
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
+
+  const dest         = transfer.requestingHospital
+  const destAddress  = [dest?.hospitalAddress, dest?.hospitalState, dest?.hospitalPincode].filter(Boolean).join(', ')
+  const destPhone    = dest?.hospitalMobile || dest?.hospitalTelephone
+  const destLandmark = dest?.hospitalLandmark
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -237,30 +528,73 @@ function DispatchModal({ transfer, onClose, onSuccess }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="card w-full max-w-md mx-4 border-slate-700 shadow-2xl">
-        <div className="flex justify-between items-center mb-5">
+      <div className="card w-full max-w-md mx-4 border-slate-700 shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
           <h3 className="font-display text-xl text-slate-100">DISPATCH AMBULANCE</h3>
           <button onClick={onClose} className="btn-ghost p-1"><X size={18} /></button>
         </div>
+
+        {(destAddress || destPhone) && (
+          <div className="mb-4 rounded-lg border border-blue-800/50 bg-blue-900/10 overflow-hidden">
+            <div className="flex items-center gap-2 px-3 py-2 bg-blue-900/25 border-b border-blue-800/40">
+              <MapPin size={12} className="text-blue-400 shrink-0" />
+              <span className="text-xs font-semibold text-blue-300 uppercase tracking-wide">Destination Hospital</span>
+              {dest?.location?.city && (
+                <span className="text-xs text-blue-400/70 ml-auto">{dest.location.city}</span>
+              )}
+            </div>
+            <div className="px-3 py-2.5 space-y-1.5">
+              {(dest?.hospitalName || dest?.name) && (
+                <p className="text-sm font-medium text-slate-100">{dest?.hospitalName || dest?.name}</p>
+              )}
+              {destAddress && (
+                <div className="flex items-start gap-2 text-xs text-slate-400">
+                  <MapPin size={10} className="mt-0.5 shrink-0 text-slate-600" />
+                  <span>{destAddress}</span>
+                </div>
+              )}
+              {destLandmark && (
+                <p className="text-xs text-slate-500">📍 Near {destLandmark}</p>
+              )}
+              {destPhone && (
+                <div className="flex items-center gap-2 text-xs">
+                  <Phone size={10} className="shrink-0 text-slate-600" />
+                  <span className="text-slate-500">Hospital Contact:</span>
+                  <a href={`tel:${destPhone}`} className="text-green-400 font-mono font-bold hover:text-green-300 underline underline-offset-2">
+                    📞 {destPhone}
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="mb-4 p-3 rounded-lg bg-orange-900/20 border border-orange-800/40 text-xs text-orange-300">
-          ⚠️ Dispatching will deduct <strong>{transfer.unitsRequested} units of {transfer.bloodGroup}</strong> from your inventory.
+          ⚠️ Dispatching will deduct{' '}
+          <strong>{transfer.unitsRequested} units of {transfer.bloodGroup}</strong>{' '}
+          from your inventory.
         </div>
+
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
             <label className="label">Vehicle Number</label>
-            <input className="input" placeholder="TN-01-AB-1234" value={form.vehicleNumber} onChange={e => set('vehicleNumber', e.target.value)} />
+            <input className="input" placeholder="TN-01-AB-1234"
+              value={form.vehicleNumber} onChange={e => set('vehicleNumber', e.target.value)} />
           </div>
           <div>
             <label className="label">Driver Name</label>
-            <input className="input" placeholder="Rajan Kumar" value={form.driverName} onChange={e => set('driverName', e.target.value)} />
+            <input className="input" placeholder="Rajan Kumar"
+              value={form.driverName} onChange={e => set('driverName', e.target.value)} />
           </div>
           <div>
             <label className="label">Driver Phone</label>
-            <input className="input" placeholder="9876543210" value={form.driverPhone} onChange={e => set('driverPhone', e.target.value)} />
+            <input className="input" placeholder="9876543210"
+              value={form.driverPhone} onChange={e => set('driverPhone', e.target.value)} />
           </div>
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
-            <button type="submit" disabled={submitting} className="bg-orange-700 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded-lg transition-all flex-1">
+            <button type="submit" disabled={submitting}
+              className="bg-orange-700 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded-lg transition-all flex-1">
               {submitting ? 'Dispatching...' : '🚑 Dispatch'}
             </button>
           </div>
@@ -270,7 +604,8 @@ function DispatchModal({ transfer, onClose, onSuccess }) {
   )
 }
 
-// ── Ambulance Info Card (shown to requesting hospital when IN_TRANSIT) ─────────
+
+// ── Ambulance Info Card ────────────────────────────────────────────────────────
 function AmbulanceInfoCard({ ambulanceInfo }) {
   const { vehicleNumber, driverName, driverPhone, dispatchedAt } = ambulanceInfo || {}
   return (
@@ -311,15 +646,21 @@ function AmbulanceInfoCard({ ambulanceInfo }) {
   )
 }
 
-// ── Transfers Table ───────────────────────────────────────────────────────────
+
+// ── Transfers Table ────────────────────────────────────────────────────────────
 function TransfersTable({ transfers, myId, onAction }) {
   const [rejectId, setRejectId]         = useState(null)
   const [rejectReason, setRejectReason] = useState('')
   const [dispatchItem, setDispatch]     = useState(null)
   const [cancelId, setCancelId]         = useState(null)
+  const [profileHospital, setProfile]   = useState(null)
 
-  const isSupplier  = (t) => t.supplyingHospital?._id === myId || t.supplyingHospital === myId
-  const isRequester = (t) => t.requestingHospital?._id === myId || t.requestingHospital === myId
+  const myIdStr = typeof myId === 'object'
+    ? (myId?._id || myId?.id || String(myId))
+    : String(myId ?? '')
+
+  const isSupplier  = (t) => String(t.supplyingHospital?._id  || t.supplyingHospital)  === myIdStr
+  const isRequester = (t) => String(t.requestingHospital?._id || t.requestingHospital) === myIdStr
 
   const handleAccept = async (id) => {
     try { await acceptTransfer(id); toast.success('Transfer accepted!'); onAction() }
@@ -350,13 +691,16 @@ function TransfersTable({ transfers, myId, onAction }) {
       <div className="space-y-3">
         {transfers.map(t => {
           const iAm = isSupplier(t) ? 'supplier' : 'requester'
-          const otherName = iAm === 'supplier'
-            ? (t.requestingHospital?.hospitalName || t.requestingHospital?.name)
-            : (t.supplyingHospital?.hospitalName  || t.supplyingHospital?.name)
-          const otherCity = iAm === 'supplier'
-            ? t.requestingHospital?.location?.city
-            : t.supplyingHospital?.location?.city
-          const hasAmbulanceInfo = t.ambulanceInfo?.vehicleNumber || t.ambulanceInfo?.driverName || t.ambulanceInfo?.driverPhone
+
+          const otherHospital = iAm === 'supplier' ? t.requestingHospital : t.supplyingHospital
+          const otherName     = otherHospital?.hospitalName || otherHospital?.name
+          const otherCity     = otherHospital?.location?.city
+
+          const hasAmbulanceInfo = (
+            t.ambulanceInfo?.vehicleNumber ||
+            t.ambulanceInfo?.driverName    ||
+            t.ambulanceInfo?.driverPhone
+          )
 
           return (
             <div key={t._id} className={`card border transition-all ${
@@ -364,14 +708,23 @@ function TransfersTable({ transfers, myId, onAction }) {
                 ? 'border-orange-700/60 bg-orange-900/10'
                 : 'border-slate-800 hover:border-slate-700'
             }`}>
-              {/* Row: direction + blood + status */}
-              <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+
+              {/* Row 1 */}
+              <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
                 <div>
                   <p className="text-slate-200 font-medium text-sm">
                     {iAm === 'supplier' ? '📤 Supplying to' : '📥 Requesting from'}{' '}
                     <span className="text-slate-100">{otherName}</span>
                   </p>
-                  <p className="text-xs text-slate-500 mt-0.5">{otherCity} · {formatDate(t.createdAt)}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {otherCity} · {formatDate(t.createdAt)}
+                  </p>
+                  <button
+                    onClick={() => setProfile(otherHospital)}
+                    className="mt-1.5 text-xs text-blue-400 hover:text-blue-300 underline underline-offset-2 flex items-center gap-1"
+                  >
+                    <Building2 size={10} /> View hospital profile
+                  </button>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`font-display text-xl ${bgColor(t.bloodGroup)}`}>{t.bloodGroup}</span>
@@ -386,7 +739,13 @@ function TransfersTable({ transfers, myId, onAction }) {
                 </div>
               </div>
 
-              {/* ── Ambulance info — shown to REQUESTER when IN_TRANSIT ── */}
+              {/* Row 2: address */}
+              {iAm === 'supplier'
+                ? <DeliverToCard hospital={otherHospital} />
+                : <HospitalInfoStrip hospital={otherHospital} />
+              }
+
+              {/* Ambulance info — requester */}
               {iAm === 'requester' && t.status === 'IN_TRANSIT' && (
                 hasAmbulanceInfo
                   ? <AmbulanceInfoCard ambulanceInfo={t.ambulanceInfo} />
@@ -397,7 +756,7 @@ function TransfersTable({ transfers, myId, onAction }) {
                   )
               )}
 
-              {/* ── Ambulance info — shown to SUPPLIER as summary ── */}
+              {/* Ambulance info — supplier summary */}
               {iAm === 'supplier' && t.status === 'IN_TRANSIT' && hasAmbulanceInfo && (
                 <div className="mt-2 p-2.5 rounded-lg bg-slate-800/60 border border-slate-700 flex flex-wrap gap-4 text-xs">
                   <span className="text-slate-400">🚑 <span className="text-orange-300 font-mono">{t.ambulanceInfo.vehicleNumber}</span></span>
@@ -413,9 +772,8 @@ function TransfersTable({ transfers, myId, onAction }) {
                 </div>
               )}
 
-              {/* Actions row */}
+              {/* Actions */}
               <div className="flex gap-2 flex-wrap mt-3 pt-3 border-t border-slate-800">
-                {/* Supplier: PENDING */}
                 {iAm === 'supplier' && t.status === 'PENDING' && (
                   <>
                     <button onClick={() => handleAccept(t._id)}
@@ -428,24 +786,18 @@ function TransfersTable({ transfers, myId, onAction }) {
                     </button>
                   </>
                 )}
-
-                {/* Supplier: ACCEPTED → dispatch ambulance */}
                 {iAm === 'supplier' && t.status === 'ACCEPTED' && (
                   <button onClick={() => setDispatch(t)}
                     className="text-xs bg-orange-800 hover:bg-orange-700 text-orange-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-medium">
                     <Truck size={12} /> 🚑 Dispatch Ambulance
                   </button>
                 )}
-
-                {/* Requester: IN_TRANSIT → confirm delivery */}
                 {iAm === 'requester' && t.status === 'IN_TRANSIT' && (
                   <button onClick={() => handleDeliver(t._id)}
                     className="text-xs bg-green-800 hover:bg-green-700 text-green-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-medium">
                     <CheckCircle size={12} /> ✓ Confirm Delivery Received
                   </button>
                 )}
-
-                {/* Either party: cancel while PENDING or ACCEPTED */}
                 {['PENDING', 'ACCEPTED'].includes(t.status) && (
                   <button onClick={() => setCancelId(t._id)}
                     className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-400 px-3 py-1.5 rounded-lg ml-auto">
@@ -468,7 +820,10 @@ function TransfersTable({ transfers, myId, onAction }) {
               value={rejectReason} onChange={e => setRejectReason(e.target.value)} />
             <div className="flex gap-3">
               <button onClick={() => setRejectId(null)} className="btn-secondary flex-1">Cancel</button>
-              <button onClick={handleReject} className="flex-1 bg-red-800 hover:bg-red-700 text-white py-2 rounded-lg text-sm">Reject</button>
+              <button onClick={handleReject}
+                className="flex-1 bg-red-800 hover:bg-red-700 text-white py-2 rounded-lg text-sm">
+                Reject
+              </button>
             </div>
           </div>
         </div>
@@ -482,7 +837,10 @@ function TransfersTable({ transfers, myId, onAction }) {
             <p className="text-sm text-slate-400 mb-4">This will cancel the transfer request.</p>
             <div className="flex gap-3">
               <button onClick={() => setCancelId(null)} className="btn-secondary flex-1">Keep</button>
-              <button onClick={handleCancel} className="flex-1 bg-red-800 hover:bg-red-700 text-white py-2 rounded-lg text-sm">Cancel Transfer</button>
+              <button onClick={handleCancel}
+                className="flex-1 bg-red-800 hover:bg-red-700 text-white py-2 rounded-lg text-sm">
+                Cancel Transfer
+              </button>
             </div>
           </div>
         </div>
@@ -492,21 +850,27 @@ function TransfersTable({ transfers, myId, onAction }) {
       {dispatchItem && (
         <DispatchModal transfer={dispatchItem} onClose={() => setDispatch(null)} onSuccess={onAction} />
       )}
+
+      {/* Profile modal — reads from fully-populated transfer data */}
+      {profileHospital && (
+        <HospitalProfileModal hospital={profileHospital} onClose={() => setProfile(null)} />
+      )}
     </>
   )
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+
+// ── Main Page ──────────────────────────────────────────────────────────────────
 export default function HospitalInventoryPage({ hospitalId }) {
-  const [inventory, setInventory]   = useState(null)
-  const [transfers, setTransfers]   = useState([])
-  const [invLoading, setInvLoading] = useState(true)
-  const [trLoading, setTrLoading]   = useState(true)
-  const [tab, setTab]               = useState('inventory')
-  const [showEditor, setShowEditor] = useState(false)
+  const [inventory, setInventory]       = useState(null)
+  const [transfers, setTransfers]       = useState([])
+  const [invLoading, setInvLoading]     = useState(true)
+  const [trLoading, setTrLoading]       = useState(true)
+  const [tab, setTab]                   = useState('inventory')
+  const [showEditor, setShowEditor]     = useState(false)
   const [showTransfer, setShowTransfer] = useState(false)
-  const [isPublic, setIsPublic]     = useState(true)
-  const [togglingVis, setTogglingVis] = useState(false)
+  const [isPublic, setIsPublic]         = useState(true)
+  const [togglingVis, setTogglingVis]   = useState(false)
 
   const loadInventory = async () => {
     setInvLoading(true)
@@ -541,7 +905,7 @@ export default function HospitalInventoryPage({ hospitalId }) {
   }
 
   const TABS = [
-    { id: 'inventory', label: '🩸 My Stock', icon: Package },
+    { id: 'inventory', label: '🩸 My Stock',  icon: Package },
     { id: 'transfers', label: '🚑 Transfers', icon: ArrowLeftRight },
   ]
 
@@ -581,50 +945,49 @@ export default function HospitalInventoryPage({ hospitalId }) {
 
       {/* Inventory Tab */}
       {tab === 'inventory' && (
-        <>
-          {invLoading ? <LoadingSpinner className="py-12" /> : !inventory ? (
-            <EmptyState title="No inventory data" />
-          ) : (
-            <>
-              <p className="text-xs text-slate-500">
-                Last updated: {inventory.lastStockUpdate ? formatDate(inventory.lastStockUpdate) : 'Never'}
-                {' · '}
-                <span className={isPublic ? 'text-green-400' : 'text-slate-500'}>
-                  {isPublic ? '👁 Visible to other hospitals' : '🔒 Private'}
-                </span>
-              </p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-                {(inventory.stock || []).map(({ bloodGroup, units, lastUpdated }) => (
-                  <div key={bloodGroup} className={`card text-center border transition-all hover:border-slate-700 ${
-                    units === 0 ? 'opacity-50' : units < 3 ? 'border-red-800/50 bg-red-900/10' : ''}`}>
-                    <p className={`font-display text-3xl mb-1 ${bgColor(bloodGroup)}`}>{bloodGroup}</p>
-                    <p className={`text-2xl font-bold mb-1 ${units === 0 ? 'text-slate-600' : units < 3 ? 'text-red-400' : 'text-slate-100'}`}>
-                      {units}
-                    </p>
-                    <p className="text-xs text-slate-600">units</p>
-                    {units > 0 && units < 3 && <p className="text-xs text-red-400 mt-1">Low!</p>}
-                  </div>
-                ))}
-              </div>
-
-              {/* Low stock warning */}
-              {inventory.stock?.some(s => s.units > 0 && s.units < 3) && (
-                <div className="p-3 rounded-lg bg-red-900/20 border border-red-800/40 text-sm text-red-300">
-                  ⚠️ Some blood groups are running low. Consider requesting a transfer from another hospital.
+        invLoading ? <LoadingSpinner className="py-12" /> : !inventory ? (
+          <EmptyState title="No inventory data" />
+        ) : (
+          <>
+            <p className="text-xs text-slate-500">
+              Last updated: {inventory.lastStockUpdate ? formatDate(inventory.lastStockUpdate) : 'Never'}
+              {' · '}
+              <span className={isPublic ? 'text-green-400' : 'text-slate-500'}>
+                {isPublic ? '👁 Visible to other hospitals' : '🔒 Private'}
+              </span>
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+              {(inventory.stock || []).map(({ bloodGroup, units }) => (
+                <div key={bloodGroup} className={`card text-center border transition-all hover:border-slate-700 ${
+                  units === 0 ? 'opacity-50' : units < 3 ? 'border-red-800/50 bg-red-900/10' : ''}`}>
+                  <p className={`font-display text-3xl mb-1 ${bgColor(bloodGroup)}`}>{bloodGroup}</p>
+                  <p className={`text-2xl font-bold mb-1 ${
+                    units === 0 ? 'text-slate-600' : units < 3 ? 'text-red-400' : 'text-slate-100'}`}>
+                    {units}
+                  </p>
+                  <p className="text-xs text-slate-600">units</p>
+                  {units > 0 && units < 3 && <p className="text-xs text-red-400 mt-1">Low!</p>}
                 </div>
-              )}
-            </>
-          )}
-        </>
+              ))}
+            </div>
+            {inventory.stock?.some(s => s.units > 0 && s.units < 3) && (
+              <div className="p-3 rounded-lg bg-red-900/20 border border-red-800/40 text-sm text-red-300">
+                ⚠️ Some blood groups are running low. Consider requesting a transfer from another hospital.
+              </div>
+            )}
+          </>
+        )
       )}
 
       {/* Transfers Tab */}
       {tab === 'transfers' && (
-        <>
-          {trLoading ? <LoadingSpinner className="py-12" /> : (
-            <TransfersTable transfers={transfers} myId={hospitalId} onAction={() => { loadTransfers(); loadInventory() }} />
-          )}
-        </>
+        trLoading ? <LoadingSpinner className="py-12" /> : (
+          <TransfersTable
+            transfers={transfers}
+            myId={hospitalId}
+            onAction={() => { loadTransfers(); loadInventory() }}
+          />
+        )
       )}
 
       {/* Modals */}

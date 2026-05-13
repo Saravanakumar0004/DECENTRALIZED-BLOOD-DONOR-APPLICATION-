@@ -42,11 +42,132 @@ const userSchema = new mongoose.Schema(
     lastDonationDate: Date,
     healthConditions: [{ type: String, trim: true }],
 
-    // ── HOSPITAL fields ───────────────────────────────────────
+    // ── DONOR – Personal Details ───────────────────────────────
+    gender: {
+      type: String,
+      enum: { values: ['Male', 'Female', 'Other'], message: 'Invalid gender' },
+    },
+    dateOfBirth: { type: Date },
+    mobileNumber: {
+      type: String,
+      trim: true,
+      match: [/^\+?[0-9]{7,15}$/, 'Invalid mobile number'],
+    },
+    address:  { type: String, trim: true },
+    state:    { type: String, trim: true },
+    pincode:  { type: String, trim: true },
+
+    // FIX: profilePhoto stored as Buffer subdocument (same as medicalReportCertificate),
+    // NOT a String URL. Was { type: String } before — that caused Mongoose validation
+    // errors when the controller stored { data, contentType, fileName, uploadedAt }.
+    profilePhoto: {
+      data:        { type: Buffer },
+      contentType: { type: String },
+      fileName:    { type: String },
+      uploadedAt:  { type: Date },
+    },
+
+    // ── DONOR – Medical Details ────────────────────────────────
+    hemoglobinLevel:    { type: Number, min: 0 },
+    currentMedications: [{ type: String, trim: true }],
+    allergies:          [{ type: String, trim: true }],
+    surgeryHistory:     [{ type: String, trim: true }],
+    smokingStatus: {
+      type: String,
+      enum: { values: ['Non-Smoker', 'Smoker', 'Ex-Smoker'], message: 'Invalid smoking status' },
+    },
+    alcoholStatus: {
+      type: String,
+      enum: { values: ['None', 'Occasional', 'Regular'], message: 'Invalid alcohol status' },
+    },
+    covidVaccinationStatus: { type: String, trim: true },
+
+    // ── DONOR – Eligibility Verification ──────────────────────
+    fitForDonation: { type: Boolean },
+    doctorVerificationStatus: {
+      type: String,
+      enum: { values: ['Pending', 'Verified', 'Rejected'], message: 'Invalid verification status' },
+      default: 'Pending',
+    },
+    governmentIdNumber:     { type: String, trim: true },
+    emergencyContactNumber: {
+      type: String,
+      trim: true,
+      match: [/^\+?[0-9]{7,15}$/, 'Invalid emergency contact number'],
+    },
+    medicalReportCertificate: {
+      data:        { type: Buffer },
+      contentType: { type: String },
+      fileName:    { type: String },
+      uploadedAt:  { type: Date },
+    },
+
+    // ── HOSPITAL fields ────────────────────────────────────────
     hospitalName:  { type: String, trim: true },
     licenseNumber: { type: String, trim: true },
 
-    // ── Shared / Geo ──────────────────────────────────────────
+    // ── HOSPITAL – Basic Details ───────────────────────────────
+    hospitalType: {
+      type: String,
+      enum: { values: ['Government', 'Private', 'Clinic'], message: 'Invalid hospital type' },
+    },
+    registrationNumber: { type: String, trim: true },
+    establishedYear:    { type: Number, min: 1800, max: new Date().getFullYear() },
+
+    // ── HOSPITAL – Contact Details ─────────────────────────────
+    contactPersonName: { type: String, trim: true },
+    hospitalMobile:    {
+      type: String,
+      trim: true,
+      match: [/^\+?[0-9]{7,15}$/, 'Invalid hospital mobile number'],
+    },
+    hospitalTelephone: { type: String, trim: true },
+    hospitalWebsite:   { type: String, trim: true },
+
+    // ── HOSPITAL – Address ─────────────────────────────────────
+    hospitalAddress:  { type: String, trim: true },
+    hospitalState:    { type: String, trim: true },
+    hospitalPincode:  { type: String, trim: true },
+    hospitalLandmark: { type: String, trim: true },
+
+    // ── HOSPITAL – Blood Bank Details ──────────────────────────
+    bloodBankAvailable:        { type: Boolean, default: false },
+    bloodStorageCapacity:      { type: Number, min: 0 },
+    availableBloodGroups:      [{ type: String, enum: BLOOD_GROUPS }],
+    emergencyServiceAvailable: { type: Boolean, default: false },
+    is24x7Service:             { type: Boolean, default: false },
+
+    // ── HOSPITAL – Verification Documents ─────────────────────
+    hospitalLicenseCertificate: {
+      data:        { type: Buffer },
+      contentType: { type: String },
+      fileName:    { type: String },
+      uploadedAt:  { type: Date },
+    },
+    governmentApprovalDocument: {
+      data:        { type: Buffer },
+      contentType: { type: String },
+      fileName:    { type: String },
+      uploadedAt:  { type: Date },
+    },
+    gstNumber: { type: String, trim: true },
+    adminIdProof: {
+      data:        { type: Buffer },
+      contentType: { type: String },
+      fileName:    { type: String },
+      uploadedAt:  { type: Date },
+    },
+
+    // FIX: hospitalPhoto stored as Buffer subdocument (same as other docs),
+    // NOT a String URL. Was { type: String } before — same mismatch bug as profilePhoto.
+    hospitalPhoto: {
+      data:        { type: Buffer },
+      contentType: { type: String },
+      fileName:    { type: String },
+      uploadedAt:  { type: Date },
+    },
+
+    // ── Shared / Geo ───────────────────────────────────────────
     location: {
       type: {
         type: String,
@@ -64,7 +185,7 @@ const userSchema = new mongoose.Schema(
       city: { type: String, trim: true },
     },
 
-    // ── Blockchain / Rewards ──────────────────────────────────
+    // ── Blockchain / Rewards ───────────────────────────────────
     walletAddress: {
       type: String,
       lowercase: true,
@@ -72,7 +193,7 @@ const userSchema = new mongoose.Schema(
     },
     bdcBalance: { type: Number, default: 0, min: 0 },
 
-    // ── Status ────────────────────────────────────────────────
+    // ── Status ─────────────────────────────────────────────────
     isVerified: { type: Boolean, default: false },
     isActive:   { type: Boolean, default: true },
   },
@@ -83,19 +204,26 @@ const userSchema = new mongoose.Schema(
       transform(_, ret) {
         delete ret.password;
         delete ret.__v;
+        // Strip raw binary buffers from all file subdocuments
+        if (ret.medicalReportCertificate)   delete ret.medicalReportCertificate.data;
+        if (ret.profilePhoto)               delete ret.profilePhoto.data;
+        if (ret.hospitalLicenseCertificate) delete ret.hospitalLicenseCertificate.data;
+        if (ret.governmentApprovalDocument) delete ret.governmentApprovalDocument.data;
+        if (ret.adminIdProof)               delete ret.adminIdProof.data;
+        if (ret.hospitalPhoto)              delete ret.hospitalPhoto.data;
         return ret;
       },
     },
   }
 );
 
-// ── Indexes ─────────────────────────────────────────────────────────────────
+// ── Indexes ──────────────────────────────────────────────────────────────────
 userSchema.index({ location: '2dsphere' });
 userSchema.index({ email: 1 });
 userSchema.index({ role: 1 });
 userSchema.index({ bloodGroup: 1, role: 1 });
 
-// ── Virtuals ─────────────────────────────────────────────────────────────────
+// ── Virtuals ──────────────────────────────────────────────────────────────────
 userSchema.virtual('isEligibleToDonate').get(function () {
   if (this.role !== 'DONOR') return false;
   if (!this.lastDonationDate) return true;
@@ -103,14 +231,14 @@ userSchema.virtual('isEligibleToDonate').get(function () {
   return Date.now() - new Date(this.lastDonationDate).getTime() >= cooldownMs;
 });
 
-// ── Hooks ────────────────────────────────────────────────────────────────────
+// ── Hooks ─────────────────────────────────────────────────────────────────────
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });
 
-// ── Methods ──────────────────────────────────────────────────────────────────
+// ── Methods ───────────────────────────────────────────────────────────────────
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };

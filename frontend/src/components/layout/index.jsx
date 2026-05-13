@@ -6,26 +6,32 @@ import { connectWallet } from '../../utils/blockchain'
 import toast from 'react-hot-toast'
 import {
   LayoutDashboard, Droplets, Map, User, Users,
-  ClipboardList, Activity, LogOut, Menu, X, ChevronRight
+  ClipboardList, Activity, LogOut, Menu, X, ChevronRight,
+  Brain,
 } from 'lucide-react'
 
 // ── Sidebar nav config ────────────────────────────────────────────────────────
 const DONOR_NAV = [
-  { to: '/donor',       icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/requests',    icon: Droplets,        label: 'Blood Requests' },
-  { to: '/map',         icon: Map,             label: 'Donor Map' },
-  { to: '/profile',     icon: User,            label: 'Profile' },
+  { to: '/donor',    icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/requests', icon: Droplets,        label: 'Blood Requests' },
+  { to: '/map',      icon: Map,             label: 'Donor Map' },
+  { to: '/ai',       icon: Brain,           label: '🤖 AI Analyst' },
+  { to: '/profile',  icon: User,            label: 'Profile' },
 ]
+
 const HOSPITAL_NAV = [
-  { to: '/hospital',    icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/hospital/requests',  icon: ClipboardList, label: 'My Requests' },
-  { to: '/hospital/donations', icon: Droplets,      label: 'Donations' },
-  { to: '/profile',     icon: User,            label: 'Profile' },
+  { to: '/hospital',           icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/hospital/requests',  icon: ClipboardList,   label: 'My Requests' },
+  { to: '/hospital/donations', icon: Droplets,        label: 'Donations' },
+  { to: '/ai',                 icon: Brain,           label: '🤖 AI Analyst' },
+  { to: '/profile',            icon: User,            label: 'Profile' },
 ]
+
 const ADMIN_NAV = [
-  { to: '/admin',       icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/admin/users', icon: Users,           label: 'Users' },
-  { to: '/admin/donations', icon: Activity,    label: 'All Donations' },
+  { to: '/admin',           icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/admin/users',     icon: Users,           label: 'Users' },
+  { to: '/admin/donations', icon: Activity,        label: 'All Donations' },
+  { to: '/ai',              icon: Brain,           label: '🤖 AI Analyst' },
 ]
 
 function getNav(role) {
@@ -141,6 +147,7 @@ export function Navbar({ onMenuClick }) {
     '/hospital/donations': 'Incoming Donations',
     '/admin/users':        'User Management',
     '/admin/donations':    'Donations Audit',
+    '/ai':                 'AI Analyst',
   }
   const title = titleMap[location.pathname] || 'BloodLink'
 

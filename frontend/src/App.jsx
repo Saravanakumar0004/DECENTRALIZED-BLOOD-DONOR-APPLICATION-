@@ -2,22 +2,22 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { ProtectedRoute, GuestRoute } from './routes'
 
 // Pages
-import Landing        from './pages/Landing'
-import Login          from './pages/Login'
-import Register       from './pages/Register'
-import DonorDashboard from './pages/DonorDashboard'
-import HospitalDashboard from './pages/HospitalDashboard'
-import AdminDashboard from './pages/AdminDashboard'
-import RequestsMap    from './pages/RequestsMap'
-import Profile        from './pages/Profile'
-import DonationDetail from './pages/DonationDetail'
-// import RequestsPage   from './pages/RequestsPage'
+import Landing               from './pages/Landing'
+import Login                 from './pages/Login'
+import Register              from './pages/Register'
+import DonorDashboard        from './pages/DonorDashboard'
+import HospitalDashboard     from './pages/HospitalDashboard'
+import AdminDashboard        from './pages/AdminDashboard'
+import RequestsMap           from './pages/RequestsMap'
+import Profile               from './pages/Profile'
+import DonationDetail        from './pages/DonationDetail'
+import RequestsPage          from './pages/RequestsPage'
 import HospitalRequestsPage  from './pages/HospitalRequestsPage'
 import HospitalDonationsPage from './pages/HospitalDonationsPage'
 import AdminUsersPage        from './pages/AdminUsersPage'
 import AdminDonationsPage    from './pages/AdminDonationsPage'
-import NotFound       from './pages/NotFound'
-import  RequestsPage  from './pages/RequestsPage'
+import NotFound              from './pages/NotFound'
+import AIAnalystPage         from './pages/AIAnalystPage'
 
 export default function App() {
   return (
@@ -52,10 +52,11 @@ export default function App() {
         <Route path="/admin/donations" element={<AdminDonationsPage />} />
       </Route>
 
-      {/* Shared protected */}
-      <Route element={<ProtectedRoute roles={['DONOR','HOSPITAL','ADMIN']} />}>
-        <Route path="/profile"           element={<Profile />} />
-        <Route path="/donations/:id"     element={<DonationDetail />} />
+      {/* Shared protected (all roles) */}
+      <Route element={<ProtectedRoute roles={['DONOR', 'HOSPITAL', 'ADMIN']} />}>
+        <Route path="/profile"       element={<Profile />} />
+        <Route path="/donations/:id" element={<DonationDetail />} />
+        <Route path="/ai"            element={<AIAnalystPage />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />
