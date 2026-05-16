@@ -17,7 +17,6 @@ import {
   healthRouter,
 } from './routes/index.routes.js';
 
-
 import aiRoutes from './routes/ai.routes.js';
 // Error handler
 import errorHandler from './middleware/errorHandler.js';
@@ -25,15 +24,37 @@ import logger from './utils/logger.js';
 
 const app = express();
 
+// ── Trust proxy (REQUIRED for Vercel / any reverse-proxy deployment) ──────────
+// Without this, express-rate-limit throws ERR_ERL_UNEXPECTED_X_FORWARDED_FOR
+// and returns 500 on every request.
+app.set('trust proxy', 1);
+
 // ── Security headers ──────────────────────────────────────────────────────────
 app.use(helmet());
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
+// Support multiple allowed origins: the production URL, localhost dev server,
+// and any Vercel preview-deployment URL.
+const ALLOWED_ORIGINS = (process.env.FRONTEND_URL || 'http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim());
+
 app.use(
   cors({
-    origin:      process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin(origin, callback) {
+      // Allow requests with no origin (curl, Postman, server-to-server)
+      if (!origin) return callback(null, true);
+      if (
+        ALLOWED_ORIGINS.includes(origin) ||
+        // Allow any Vercel preview URL for the same project
+        /\.vercel\.app$/.test(origin)
+      ) {
+        return callback(null, true);
+      }
+      callback(new Error(`CORS: origin "${origin}" not allowed`));
+    },
     credentials: true,
-    methods:     ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
@@ -55,11 +76,13 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
+// trust proxy is set above, so express-rate-limit will correctly read the
+// real client IP from X-Forwarded-For without throwing a validation error.
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max:      200,
+  max: 200,
   standardHeaders: true,
-  legacyHeaders:   false,
+  legacyHeaders: false,
   message: { message: 'Too many requests, please try again later.' },
 });
 
@@ -67,13 +90,13 @@ const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: process.env.NODE_ENV === 'production' ? 10 : 50,
   standardHeaders: true,
-  legacyHeaders:   false,
+  legacyHeaders: false,
   skip: () => process.env.NODE_ENV === 'development',
   message: { message: 'Too many auth attempts, please try again later.' },
 });
 
 app.use('/api', globalLimiter);
-app.use('/api/auth/login',    authLimiter);
+app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 
 // ── Routes ────────────────────────────────────────────────────────────────────
@@ -86,6 +109,7 @@ app.use('/api/bdc',       bdcRouter);
 app.use('/api/admin',     adminRouter);
 app.use('/api/inventory', inventoryRouter);
 app.use('/api/ai',        aiRoutes);
+
 // ── 404 handler ───────────────────────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ message: `Route not found: ${req.method} ${req.originalUrl}` });

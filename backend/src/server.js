@@ -1,3 +1,7 @@
+/**
+ * Local development server only.
+ * On Vercel, api/index.js is the entry point — this file is never executed.
+ */
 import 'dotenv/config';
 import app from './app.js';
 import connectDB from './config/db.js';
@@ -9,7 +13,7 @@ import logger from './utils/logger.js';
 const PORT = parseInt(process.env.PORT, 10) || 5000;
 
 const startServer = async () => {
-  // 1. Connect to MongoDB (required — exit on failure)
+  // 1. Connect to MongoDB
   await connectDB();
 
   // 2. Test optional services (warn but don't exit)
@@ -26,14 +30,13 @@ const startServer = async () => {
     logger.info(`🩸 BloodLink backend running on port ${PORT} [${process.env.NODE_ENV}]`);
   });
 
-  // ── Graceful shutdown ─────────────────────────────────────────────────────
+  // ── Graceful shutdown ───────────────────────────────────────────────────────
   const shutdown = (signal) => {
     logger.info(`${signal} received. Shutting down gracefully...`);
     server.close(() => {
       logger.info('HTTP server closed');
       process.exit(0);
     });
-    // Force kill after 10s
     setTimeout(() => process.exit(1), 10_000);
   };
 
