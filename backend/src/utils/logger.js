@@ -17,7 +17,8 @@ const logger = winston.createLogger({
   ),
   transports: [
     new winston.transports.Console(),
-    ...(process.env.NODE_ENV === 'production'
+    // ✅ File logging only in local dev — Vercel filesystem is read-only
+    ...(process.env.NODE_ENV !== 'production' && !process.env.VERCEL
       ? [
           new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
           new winston.transports.File({ filename: 'logs/combined.log' }),
