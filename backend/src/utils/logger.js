@@ -17,7 +17,6 @@ const logger = winston.createLogger({
   ),
   transports: [
     new winston.transports.Console(),
-    // ✅ FIXED: No file logging on Vercel — filesystem is read-only
   ],
 });
 
