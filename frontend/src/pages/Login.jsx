@@ -110,40 +110,7 @@ export default function Login() {
           </p>
         </div>
 
-        {/* 2nd: Quick-fill demo accounts */}
-        <div className="card border-slate-700 p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Zap size={13} className="text-amber-400" />
-            <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">
-              Quick Login — Click to Auto-Fill
-            </span>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {SEED_ACCOUNTS.map(acc => (
-              <button
-                key={acc.email}
-                type="button"
-                onClick={() => fillAccount(acc)}
-                className={`text-left p-2 rounded-xl border transition-all text-xs ${
-                  form.email === acc.email
-                    ? 'border-blood-600 bg-blood-950 text-blood-300'
-                    : 'border-slate-700 bg-slate-800/40 text-slate-400 hover:border-slate-600 hover:text-slate-200'
-                }`}
-              >
-                <div className="text-base leading-none mb-1">{acc.icon}</div>
-                <div className="font-medium truncate">{acc.label}</div>
-                <div className={`text-[10px] mt-0.5 ${
-                  acc.role === 'ADMIN'    ? 'text-purple-400' :
-                  acc.role === 'HOSPITAL' ? 'text-orange-400' : 'text-blood-400'
-                }`}>{acc.role}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <p className="text-center text-xs text-slate-700 mt-4">
-          Backend: localhost:5000 · Seed data loaded with 3 donors, 2 hospitals, 1 admin
-        </p>
+    
 
       </div>
     </div>
